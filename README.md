@@ -147,3 +147,14 @@ python evaluate_metrics.py \
 
 ## 11) Giấy phép
 Xem `LICENSE`.
+
+Lưu ý model ReID (bắt buộc):
+- Cần tệp `resources/networks/mars-small128.pb`. Nếu chưa có, hãy tải và đặt đúng vị trí trên.
+- Hoặc truyền đường dẫn tuyệt đối qua tham số `--model` khi chạy `tools/generate_detections.py`.
+- Trên Colab, ví dụ:
+```bash
+python tools/generate_detections.py \
+  --model /content/deepSORT_MOT17/resources/networks/mars-small128.pb \
+  --mot_dir /content/deepSORT_MOT17/MOT17/train \
+  --output_dir /content/deepSORT_MOT17/detections
+```

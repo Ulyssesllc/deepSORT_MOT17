@@ -238,6 +238,15 @@ def parse_args():
 
 def main():
     args = parse_args()
+    # Early check for model file presence to avoid opaque TF errors
+    if not os.path.exists(args.model):
+        print("[ERROR] Model file not found: %s" % args.model)
+        print("Hints:")
+        print(
+            "- Ensure 'mars-small128.pb' exists at resources/networks/mars-small128.pb"
+        )
+        print("- Or pass an absolute path via: --model /path/to/mars-small128.pb")
+        raise SystemExit(1)
     encoder = create_box_encoder(args.model, batch_size=32)
     generate_detections(encoder, args.mot_dir, args.output_dir, args.detection_dir)
 
