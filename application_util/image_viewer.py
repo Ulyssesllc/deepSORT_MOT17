@@ -107,6 +107,14 @@ class ImageViewer(object):
         self._user_fun = lambda: None
         self._terminate = False
 
+        # Detect headless environment
+        import os
+
+        self._headless = (
+            os.environ.get("DISPLAY", "") == ""
+            or os.environ.get("QT_QPA_PLATFORM") == "offscreen"
+        )
+
         self.image = np.zeros(self._window_shape + (3,), dtype=np.uint8)
         self._color = (0, 0, 0)
         self.text_color = (255, 255, 255)
@@ -314,6 +322,16 @@ class ImageViewer(object):
         """
         if update_fun is not None:
             self._user_fun = update_fun
+
+        # In headless mode, just run through all frames without GUI
+        if self._headless:
+            print(f"Running in headless mode for {self._caption}")
+            while not self._terminate:
+                self._terminate = not self._user_fun()
+                if self._video_writer is not None:
+                    self._video_writer.write(cv2.resize(self.image, self._window_shape))
+                time.sleep(self._update_ms / 1000.0)  # Simulate frame timing
+            return
 
         self._terminate, is_paused = False, False
         # print("ImageViewer is paused, press space to start.")

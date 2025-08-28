@@ -81,7 +81,16 @@ def run(
         update_ms = seq_info["update_ms"]
     if update_ms is None:
         update_ms = DEFAULT_UPDATE_MS
-    visualizer = visualization.Visualization(seq_info, update_ms)
+
+    # Detect headless environment
+    import os
+
+    headless = (
+        os.environ.get("DISPLAY", "") == ""
+        or os.environ.get("QT_QPA_PLATFORM") == "offscreen"
+    )
+
+    visualizer = visualization.Visualization(seq_info, update_ms, headless=headless)
     if video_filename is not None:
         visualizer.viewer.enable_videowriter(video_filename)
     visualizer.run(frame_callback)

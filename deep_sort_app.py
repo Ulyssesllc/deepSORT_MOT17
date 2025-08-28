@@ -197,6 +197,19 @@ def run(
         If True, show visualization of intermediate tracking results.
 
     """
+    # Detect headless environment and force display=False if needed
+    import os
+
+    headless = (
+        os.environ.get("DISPLAY", "") == ""
+        or os.environ.get("QT_QPA_PLATFORM") == "offscreen"
+    )
+    if headless and display:
+        print(
+            "Headless environment detected, forcing display=False to avoid GUI errors"
+        )
+        display = False
+
     seq_info = gather_sequence_info(sequence_dir, detection_file)
     metric = nn_matching.NearestNeighborDistanceMetric(
         "cosine", max_cosine_distance, nn_budget
@@ -244,9 +257,7 @@ def run(
         visualizer = visualization.Visualization(seq_info, update_ms=5)
     else:
         visualizer = visualization.NoVisualization(seq_info)
-    visualizer.run(frame_callback)
-
-    # Store results.
+    visualizer.run(frame_callback)  # Store results.
     f = open(output_file, "w")
     for row in results:
         print(
