@@ -1,5 +1,6 @@
 # vim: expandtab:ts=4:sw=4
 import numpy as np
+import cv2
 import colorsys
 from .image_viewer import ImageViewer
 
@@ -55,30 +56,113 @@ def create_unique_color_uchar(tag, hue_step=0.41):
 
 class NoVisualization(object):
     """
-    A dummy visualization object that loops through all frames in a given
-    sequence to update the tracker without performing any visualization.
+    A headless visualization that supports drawing on frames and writing video
+    without creating GUI windows. Used in environments without a display.
     """
 
     def __init__(self, seq_info):
         self.frame_idx = seq_info["min_frame_idx"]
         self.last_idx = seq_info["max_frame_idx"]
+        h, w = seq_info["image_size"]
+        self._window_shape = (w, h)  # (width, height)
+        self._update_ms = int(seq_info.get("update_ms", 40) or 40)
+        self._video_writer = None
 
+        # Drawing state compatible with ImageViewer
+        self.image = np.zeros((h, w, 3), dtype=np.uint8)
+        self._color = (0, 0, 0)
+        self.text_color = (255, 255, 255)
+        self.thickness = 1
+
+    @property
+    def color(self):
+        return self._color
+
+    @color.setter
+    def color(self, value):
+        if len(value) != 3:
+            raise ValueError("color must be tuple of 3")
+        self._color = tuple(int(c) for c in value)
+
+    # Methods used by Visualization
     def set_image(self, image):
-        pass
+        # Expect BGR image
+        if image is None:
+            return
+        self.image = image
+
+    def rectangle(self, x, y, w, h, label=None):
+        pt1 = int(x), int(y)
+        pt2 = int(x + w), int(y + h)
+        cv2.rectangle(self.image, pt1, pt2, self._color, self.thickness)
+        if label is not None:
+            text_size = cv2.getTextSize(
+                label, cv2.FONT_HERSHEY_PLAIN, 1, self.thickness
+            )
+            center = pt1[0] + 5, pt1[1] + 5 + text_size[0][1]
+            pt2 = pt1[0] + 10 + text_size[0][0], pt1[1] + 10 + text_size[0][1]
+            cv2.rectangle(self.image, pt1, pt2, self._color, -1)
+            cv2.putText(
+                self.image,
+                label,
+                center,
+                cv2.FONT_HERSHEY_PLAIN,
+                1,
+                (255, 255, 255),
+                self.thickness,
+            )
 
     def draw_groundtruth(self, track_ids, boxes):
-        pass
+        # Visualization class handles ID coloring; here we only support drawing if called directly
+        for box in boxes:
+            self.rectangle(*box.astype(np.int64))
 
     def draw_detections(self, detections):
-        pass
+        for det in detections:
+            self.rectangle(*det.tlwh)
 
     def draw_trackers(self, trackers):
-        pass
+        for track in trackers:
+            if not track.is_confirmed() or track.time_since_update > 0:
+                continue
+            self.rectangle(*track.to_tlwh().astype(np.int64))
 
-    def run(self, frame_callback):
-        while self.frame_idx <= self.last_idx:
-            frame_callback(self, self.frame_idx)
-            self.frame_idx += 1
+    def enable_videowriter(self, output_filename, fourcc_string="MJPG", fps=None):
+        fourcc = cv2.VideoWriter_fourcc(*fourcc_string)
+        if fps is None:
+            fps = int(1000.0 / max(1, self._update_ms))
+        self._video_writer = cv2.VideoWriter(
+            output_filename, fourcc, fps, self._window_shape
+        )
+
+    def disable_videowriter(self):
+        if self._video_writer is not None:
+            try:
+                self._video_writer.release()
+            except Exception:
+                pass
+        self._video_writer = None
+
+    def run(self, update_fun=None):
+        """Headless run loop compatible with ImageViewer.run.
+
+        Parameters
+        ----------
+        update_fun : Optional[Callable[] -> bool]
+            A callable invoked at each iteration. Should return True to
+            continue, False to terminate. It is expected to update self.image
+            via Visualization._update_fun.
+        """
+        if update_fun is None:
+            return
+        # Run until update_fun signals termination
+        terminate = False
+        while not terminate:
+            # update_fun will manage frame index and termination
+            terminate = not update_fun()
+            if self._video_writer is not None and self.image is not None:
+                frame = cv2.resize(self.image, self._window_shape)
+                self._video_writer.write(frame)
 
 
 class Visualization(object):
