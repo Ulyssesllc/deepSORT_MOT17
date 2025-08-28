@@ -10,25 +10,39 @@ Theo dõi đa đối tượng (Multi-Object Tracking) với Deep SORT trên bộ
 python -m venv .venv
 source .venv/Scripts/activate
 pip install -r requirements.txt
-# Hoặc dùng GPU: pip install -r requirements-gpu.txt
+# Hoặc GPU: pip install -r requirements-gpu.txt
 ```
 
-Lưu ý: Module trích xuất đặc trưng dùng TensorFlow (tf.compat.v1). Có thể dùng TF 1.x hoặc TF 2.x với compat v1.
-
-## 2) Chuẩn bị dữ liệu MOT17
-Đặt dữ liệu với cấu trúc:
+## 2) Tải và chuẩn bị dữ liệu MOT17 (quan trọng)
+Cấu trúc chuẩn (như bạn đã liệt kê) phải đúng như sau:
 ```
 MOT17/
   train/
-    MOT17-02-FRCNN/
+    MOT17-02-DPM/
+      img1/ (N ảnh, tên dạng 000001.jpg ...)
+      det/det.txt
+      gt/gt.txt
+      seqinfo.ini
+    MOT17-04-FRCNN/
       img1/, det/det.txt, gt/gt.txt, seqinfo.ini
-    ...
+    ... tất cả các sequence train khác ...
   test/
     MOT17-01-FRCNN/
-      img1/, det/det.txt, seqinfo.ini
-    ...
+      img1/
+      det/det.txt
+      seqinfo.ini
+    ... (lưu ý: test không có gt/gt.txt)
 ```
-Thư mục `MOT17` nên nằm cùng cấp với mã nguồn (như repo này).
+- Script `tools/generate_detections.py` sẽ duyệt các thư mục con có `img1/` và `det/det.txt`; bỏ qua thư mục không hợp lệ.
+- Script `evaluate_motchallenge.py` sẽ bỏ qua sequence nếu thiếu file `.npy` trong `detections/`.
+
+- Đặt thư mục `MOT17` cùng cấp với mã nguồn repo này.
+- (Tuỳ chọn) Kiểm tra đường dẫn trước khi chạy:
+```bash
+python validate_paths.py \
+  --sequence_dir MOT17/train/MOT17-04-FRCNN \
+  --detection_file detections/MOT17-04-FRCNN.npy
+```
 
 ## 3) Tạo đặc trưng ReID cho detections
 Tạo `.npy` đặc trưng cho từng sequence (bắt buộc trước khi tracking):
@@ -40,8 +54,7 @@ python tools/generate_detections.py \
 # (Tuỳ chọn cho test)
 # python tools/generate_detections.py --mot_dir MOT17/test --output_dir detections
 ```
-
-- Tham số `--model` mặc định `resources/networks/mars-small128.pb`. Hãy tải và cập nhật đường dẫn nếu cần.
+- Tham số `--model` mặc định `resources/networks/mars-small128.pb`.
 
 ## 4) Chạy Deep SORT
 ### 4.1 Chạy toàn bộ split
@@ -55,7 +68,6 @@ python evaluate_motchallenge.py \
   --max_cosine_distance 0.2 \
   --nn_budget 100
 ```
-Kết quả dạng MOT được lưu vào `results/<sequence>.txt`.
 
 ### 4.2 Chạy 1 sequence đơn lẻ
 ```bash
@@ -70,7 +82,22 @@ python deep_sort_app.py \
   --display True
 ```
 
-## 5) Xem kết quả và xuất video
+## 5) Chạy trên Google Colab (đường dẫn ví dụ)
+```bash
+python tools/generate_detections.py \
+  --mot_dir /content/deepSORT_MOT17/MOT17/train \
+  --output_dir /content/deepSORT_MOT17/detections
+
+python deep_sort_app.py \
+  --sequence_dir /content/deepSORT_MOT17/MOT17/train/MOT17-04-FRCNN \
+  --detection_file /content/deepSORT_MOT17/detections/MOT17-04-FRCNN.npy \
+  --output_file /content/deepSORT_MOT17/results/MOT17-04-FRCNN.txt \
+  --min_confidence 0.3 --nms_max_overlap 1.0 \
+  --max_cosine_distance 0.2 --nn_budget 100 \
+  --display False
+```
+
+## 6) Xem kết quả và xuất video
 - Xem kết quả:
 ```bash
 python show_results.py \
@@ -89,7 +116,7 @@ python generate_videos.py \
   --convert_h264
 ```
 
-## 6) Đánh giá MOTA/MOTP/IDS
+## 7) Đánh giá MOTA/MOTP/IDS
 Dùng script `evaluate_metrics.py` (cần `motmetrics`):
 ```bash
 python evaluate_metrics.py \
@@ -98,43 +125,25 @@ python evaluate_metrics.py \
   --output_csv mot17_train_metrics.csv \
   --min_iou 0.5
 ```
-In bảng tổng hợp ra terminal và (nếu chỉ định) lưu CSV.
 
-## 7) Tham số quan trọng
-- `--min_confidence`: ngưỡng tin cậy phát hiện (ảnh hưởng FP/FN).
-- `--nms_max_overlap`: ngưỡng NMS cho boxes chồng lấn.
-- `--max_cosine_distance`: ngưỡng matching theo đặc trưng ReID (ảnh hưởng IDS).
-- `--nn_budget`: số đặc trưng lưu trữ mỗi ID (bộ nhớ/độ mượt).
-- `--min_detection_height`: loại phát hiện quá nhỏ.
+## 8) Tham số quan trọng
+- `--min_confidence`, `--nms_max_overlap`, `--max_cosine_distance`, `--nn_budget`, `--min_detection_height`.
 
-## 8) Khắc phục sự cố
-- Lỗi `ImportError: cv2`/`numpy`: đảm bảo cài đặt requirements và kích hoạt venv.
-- Thiếu `detections/<sequence>.npy`: chạy bước tạo đặc trưng (mục 3).
+## 9) Khắc phục sự cố
+- FileNotFoundError cho img1 hoặc detection_file: kiểm tra cấu trúc thư mục và chạy `validate_paths.py`.
+- Lỗi `cv2`/`numpy`: cài đặt từ `requirements.txt`, kích hoạt venv.
 - TensorFlow không tương thích: dùng TF 1.x hoặc TF 2.x với `tf.compat.v1`.
 - FPS hiển thị: dùng `--update_ms` hoặc kiểm tra `seqinfo.ini`.
 
-## 9) Trích dẫn
+## 10) Trích dẫn
 
-    @inproceedings{Wojke2017simple,
-      title={Simple Online and Realtime Tracking with a Deep Association Metric},
-      author={Wojke, Nicolai and Bewley, Alex and Paulus, Dietrich},
-      booktitle={2017 IEEE International Conference on Image Processing (ICIP)},
-      year={2017},
-      pages={3645--3649},
-      organization={IEEE},
-      doi={10.1109/ICIP.2017.8296962}
-    }
+- Deep SORT:
+  - N. Wojke, A. Bewley, D. Paulus, "Simple Online and Realtime Tracking with a Deep Association Metric," 2017 IEEE International Conference on Image Processing (ICIP), 2017.
+  - arXiv: https://arxiv.org/abs/1703.07402
 
-    @inproceedings{Wojke2018deep,
-      title={Deep Cosine Metric Learning for Person Re-identification},
-      author={Wojke, Nicolai and Bewley, Alex},
-      booktitle={2018 IEEE Winter Conference on Applications of Computer Vision (WACV)},
-      year={2018},
-      pages={748--756},
-      organization={IEEE},
-      doi={10.1109/WACV.2018.00087}
-    }
+  - N. Wojke, A. Bewley, "Deep Cosine Metric Learning for Person Re-Identification," 2018 IEEE Winter Conference on Applications of Computer Vis
 
+- MOTChallenge (MOT17): https://motchallenge.net
 
-## 10) Giấy phép
+## 11) Giấy phép
 Xem `LICENSE`.

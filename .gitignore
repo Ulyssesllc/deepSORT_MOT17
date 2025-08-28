@@ -87,3 +87,9 @@ ENV/
 
 # Rope project settings
 .ropeproject
+
+# Datasets and large artifacts (do not commit)
+MOT17/
+detections/
+results/
+videos/

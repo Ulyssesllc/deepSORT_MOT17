@@ -68,9 +68,11 @@ if __name__ == "__main__":
     os.makedirs(args.output_dir, exist_ok=True)
     sequences = [
         d
-        for d in os.listdir(args.mot_dir)
-        if os.path.isdir(os.path.join(args.mot_dir, d))
+        for d in sorted(os.listdir(args.mot_dir))
+        if os.path.isdir(os.path.join(args.mot_dir, d)) and not d.startswith(".")
     ]
+    skipped = 0
+    ran = 0
     for sequence in sequences:
         sequence_dir = os.path.join(args.mot_dir, sequence)
         detection_file = os.path.join(args.detection_dir, f"{sequence}.npy")
@@ -78,6 +80,7 @@ if __name__ == "__main__":
             print(
                 f"[WARN] Missing detections for {sequence}, expected: {detection_file}. Skipping."
             )
+            skipped += 1
             continue
         output_file = os.path.join(args.output_dir, f"{sequence}.txt")
         print(f"Running sequence {sequence}")
@@ -92,3 +95,5 @@ if __name__ == "__main__":
             args.nn_budget,
             display=False,
         )
+        ran += 1
+    print(f"Done. Ran {ran} sequences, skipped {skipped} (missing detections).")

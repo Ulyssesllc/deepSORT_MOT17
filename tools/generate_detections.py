@@ -69,9 +69,9 @@ def extract_image_patch(image, bbox, patch_shape):
 
 
 class ImageEncoder(object):
-
-    def __init__(self, checkpoint_filename, input_name="images",
-                 output_name="features"):
+    def __init__(
+        self, checkpoint_filename, input_name="images", output_name="features"
+    ):
         self.session = tf.compat.v1.Session()
         with tf.compat.v1.gfile.GFile(checkpoint_filename, "rb") as file_handle:
             graph_def = tf.compat.v1.GraphDef()
@@ -79,9 +79,11 @@ class ImageEncoder(object):
         tf.import_graph_def(graph_def, name="net")
 
         self.input_var = tf.compat.v1.get_default_graph().get_tensor_by_name(
-            "%s:0" % input_name)
+            "%s:0" % input_name
+        )
         self.output_var = tf.compat.v1.get_default_graph().get_tensor_by_name(
-            "%s:0" % output_name)
+            "%s:0" % output_name
+        )
 
         assert len(self.output_var.get_shape()) == 2
         assert len(self.input_var.get_shape()) == 4
@@ -92,12 +94,16 @@ class ImageEncoder(object):
         out = np.zeros((len(data_x), self.feature_dim), np.float32)
         _run_in_batches(
             lambda x: self.session.run(self.output_var, feed_dict=x),
-            {self.input_var: data_x}, out, batch_size)
+            {self.input_var: data_x},
+            out,
+            batch_size,
+        )
         return out
 
 
-def create_box_encoder(model_filename, input_name="images",
-                       output_name="features", batch_size=32):
+def create_box_encoder(
+    model_filename, input_name="images", output_name="features", batch_size=32
+):
     image_encoder = ImageEncoder(model_filename, input_name, output_name)
     image_shape = image_encoder.image_shape
 
@@ -107,8 +113,7 @@ def create_box_encoder(model_filename, input_name="images",
             patch = extract_image_patch(image, box, image_shape[:2])
             if patch is None:
                 print("WARNING: Failed to extract image patch: %s." % str(box))
-                patch = np.random.uniform(
-                    0., 255., image_shape).astype(np.uint8)
+                patch = np.random.uniform(0.0, 255.0, image_shape).astype(np.uint8)
             image_patches.append(patch)
         image_patches = np.asarray(image_patches)
         return image_encoder(image_patches, batch_size)
@@ -143,26 +148,48 @@ def generate_detections(encoder, mot_dir, output_dir, detection_dir=None):
         if exception.errno == errno.EEXIST and os.path.isdir(output_dir):
             pass
         else:
-            raise ValueError(
-                "Failed to created output directory '%s'" % output_dir)
+            raise ValueError("Failed to created output directory '%s'" % output_dir)
 
-    for sequence in os.listdir(mot_dir):
-        print("Processing %s" % sequence)
+    for sequence in sorted(os.listdir(mot_dir)):
         sequence_dir = os.path.join(mot_dir, sequence)
+        if not os.path.isdir(sequence_dir):
+            continue
+        print("Processing %s" % sequence)
 
         image_dir = os.path.join(sequence_dir, "img1")
+        if not os.path.isdir(image_dir):
+            print("[WARN] Missing 'img1' for %s -> skip" % sequence)
+            continue
         image_filenames = {
             int(os.path.splitext(f)[0]): os.path.join(image_dir, f)
-            for f in os.listdir(image_dir)}
+            for f in os.listdir(image_dir)
+            if f.lower().endswith((".jpg", ".jpeg", ".png"))
+            and os.path.splitext(f)[0].isdigit()
+        }
+        if not image_filenames:
+            print("[WARN] No image files found in %s -> skip" % image_dir)
+            continue
 
-        detection_file = os.path.join(
-            detection_dir, sequence, "det/det.txt")
-        detections_in = np.loadtxt(detection_file, delimiter=',')
+        detection_file = os.path.join(detection_dir, sequence, "det/det.txt")
+        if not os.path.exists(detection_file):
+            print(
+                "[WARN] Missing det.txt for %s at %s -> skip"
+                % (sequence, detection_file)
+            )
+            continue
+        try:
+            detections_in = np.loadtxt(detection_file, delimiter=",")
+        except Exception as e:
+            print("[WARN] Failed to load %s (%s) -> skip" % (detection_file, str(e)))
+            continue
+        if detections_in.size == 0:
+            print("[WARN] Empty detections in %s -> skip" % detection_file)
+            continue
         detections_out = []
 
         frame_indices = detections_in[:, 0].astype(np.int64)
-        min_frame_idx = frame_indices.astype(np.int64).min()
-        max_frame_idx = frame_indices.astype(np.int64).max()
+        min_frame_idx = frame_indices.min()
+        max_frame_idx = frame_indices.max()
         for frame_idx in range(min_frame_idx, max_frame_idx + 1):
             print("Frame %05d/%05d" % (frame_idx, max_frame_idx))
             mask = frame_indices == frame_idx
@@ -171,43 +198,48 @@ def generate_detections(encoder, mot_dir, output_dir, detection_dir=None):
             if frame_idx not in image_filenames:
                 print("WARNING could not find image for frame %d" % frame_idx)
                 continue
-            bgr_image = cv2.imread(
-                image_filenames[frame_idx], cv2.IMREAD_COLOR)
+            bgr_image = cv2.imread(image_filenames[frame_idx], cv2.IMREAD_COLOR)
             features = encoder(bgr_image, rows[:, 2:6].copy())
-            detections_out += [np.r_[(row, feature)] for row, feature
-                               in zip(rows, features)]
+            detections_out += [
+                np.r_[(row, feature)] for row, feature in zip(rows, features)
+            ]
 
         output_filename = os.path.join(output_dir, "%s.npy" % sequence)
-        np.save(
-            output_filename, np.asarray(detections_out), allow_pickle=False)
+        np.save(output_filename, np.asarray(detections_out), allow_pickle=False)
 
 
 def parse_args():
-    """Parse command line arguments.
-    """
+    """Parse command line arguments."""
     parser = argparse.ArgumentParser(description="Re-ID feature extractor")
     parser.add_argument(
         "--model",
         default="resources/networks/mars-small128.pb",
-        help="Path to freezed inference graph protobuf.")
+        help="Path to freezed inference graph protobuf.",
+    )
     parser.add_argument(
-        "--mot_dir", help="Path to MOTChallenge directory (train or test)",
-        required=True)
+        "--mot_dir",
+        help="Path to MOTChallenge directory (train or test)",
+        required=True,
+    )
     parser.add_argument(
-        "--detection_dir", help="Path to custom detections. Defaults to "
+        "--detection_dir",
+        help="Path to custom detections. Defaults to "
         "standard MOT detections Directory structure should be the default "
-        "MOTChallenge structure: [sequence]/det/det.txt", default=None)
+        "MOTChallenge structure: [sequence]/det/det.txt",
+        default=None,
+    )
     parser.add_argument(
-        "--output_dir", help="Output directory. Will be created if it does not"
-        " exist.", default="detections")
+        "--output_dir",
+        help="Output directory. Will be created if it does not exist.",
+        default="detections",
+    )
     return parser.parse_args()
 
 
 def main():
     args = parse_args()
     encoder = create_box_encoder(args.model, batch_size=32)
-    generate_detections(encoder, args.mot_dir, args.output_dir,
-                        args.detection_dir)
+    generate_detections(encoder, args.mot_dir, args.output_dir, args.detection_dir)
 
 
 if __name__ == "__main__":
