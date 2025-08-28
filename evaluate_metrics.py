@@ -154,9 +154,18 @@ def evaluate_split(mot_dir: str, result_dir: str, min_iou: float = 0.5):
 
     mh = mm.metrics.create()
     try:
-        summary = mh.compute(
-            valid_accs, metrics=mm.metrics.motchallenge_metrics, name="MOT17"
-        )
+        # Use compute_many when available (newer motmetrics API). This avoids
+        # passing a dict into compute(), which expects a DataFrame in newer versions.
+        if hasattr(mh, "compute_many"):
+            names = list(valid_accs.keys())
+            acc_list = [valid_accs[n] for n in names]
+            summary = mh.compute_many(
+                acc_list, metrics=mm.metrics.motchallenge_metrics, names=names
+            )
+        else:
+            summary = mh.compute(
+                valid_accs, metrics=mm.metrics.motchallenge_metrics, name="MOT17"
+            )
         str_summary = mm.io.render_summary(
             summary, formatters=mh.formatters, namemap=mm.io.motchallenge_metric_names
         )
