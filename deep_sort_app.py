@@ -22,8 +22,8 @@ def gather_sequence_info(sequence_dir, detection_file):
     ----------
     sequence_dir : str
         Path to the MOTChallenge sequence directory.
-    detection_file : str
-        Path to the detection file.
+    detection_file : Optional[str]
+        Path to the detection file. Optional for visualization-only flows.
 
     Returns
     -------
@@ -61,16 +61,16 @@ def gather_sequence_info(sequence_dir, detection_file):
     groundtruth_file = os.path.join(sequence_dir, "gt/gt.txt")
 
     detections = None
-    if detection_file is None:
-        raise ValueError(
-            "Thiếu --detection_file (.npy). Hãy chạy 'tools/generate_detections.py' để tạo 'detections/<sequence>.npy' và truyền đúng đường dẫn."
-        )
-    if not os.path.exists(detection_file):
-        raise FileNotFoundError(
-            "Không tìm thấy detection_file: %s. Hãy chắc chắn đã tạo bằng tools/generate_detections.py."
-            % detection_file
-        )
-    detections = np.load(detection_file)
+    if detection_file is not None:
+        if os.path.exists(detection_file):
+            detections = np.load(detection_file)
+        else:
+            # For visualization we can proceed without detections
+            # Tracking via deep_sort_app.run must still provide a valid file
+            print(
+                "[WARN] detection_file not found: %s (proceeding without detections)"
+                % detection_file
+            )
     groundtruth = None
     if os.path.exists(groundtruth_file):
         groundtruth = np.loadtxt(groundtruth_file, delimiter=",")

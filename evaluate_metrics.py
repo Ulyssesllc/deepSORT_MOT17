@@ -7,6 +7,48 @@ import numpy as np
 import motmetrics as mm
 
 
+def iou_cost_matrix(
+    objs: np.ndarray, hyps: np.ndarray, min_iou: float = 0.5
+) -> np.ndarray:
+    """Compute IoU-based cost matrix compatible with motmetrics.
+
+    Boxes are in MOT format [x, y, w, h]. Returns a matrix with cost = 1 - IoU
+    and np.nan where IoU < min_iou.
+    """
+    M = 0 if objs is None else int(objs.shape[0])
+    N = 0 if hyps is None else int(hyps.shape[0])
+    if M == 0 or N == 0:
+        return np.empty((M, N))
+
+    objs = objs.astype(np.float64, copy=False)
+    hyps = hyps.astype(np.float64, copy=False)
+
+    # Convert tlwh -> xyxy
+    ox1 = objs[:, 0][:, None]
+    oy1 = objs[:, 1][:, None]
+    ox2 = (objs[:, 0] + objs[:, 2])[:, None]
+    oy2 = (objs[:, 1] + objs[:, 3])[:, None]
+
+    hx1 = hyps[:, 0][None, :]
+    hy1 = hyps[:, 1][None, :]
+    hx2 = (hyps[:, 0] + hyps[:, 2])[None, :]
+    hy2 = (hyps[:, 1] + hyps[:, 3])[None, :]
+
+    inter_w = np.clip(np.minimum(ox2, hx2) - np.maximum(ox1, hx1), a_min=0, a_max=None)
+    inter_h = np.clip(np.minimum(oy2, hy2) - np.maximum(oy1, hy1), a_min=0, a_max=None)
+    inter = inter_w * inter_h
+
+    area_o = (ox2 - ox1) * (oy2 - oy1)
+    area_h = (hx2 - hx1) * (hy2 - hy1)
+    union = area_o + area_h - inter
+    # Avoid division by zero
+    iou = np.where(union > 0.0, inter / union, 0.0)
+
+    cost = 1.0 - iou
+    cost[iou < float(min_iou)] = np.nan
+    return cost
+
+
 def load_mot_files(gt_file: str, res_file: str):
     """
     Đọc dữ liệu GT và kết quả theo định dạng MOTChallenge (10 cột).
@@ -61,8 +103,8 @@ def evaluate_split(mot_dir: str, result_dir: str, min_iou: float = 0.5):
                 # Không có gì để cập nhật
                 continue
 
-            # Khoảng cách dùng IoU theo quy ước motmetrics (ngưỡng ghép min_iou)
-            dists = mm.distances.iou_matrix(gt_boxes, res_boxes, max_iou=min_iou)
+            # Khoảng cách IoU tương thích NumPy 2.0 (tránh np.asfarray trong motmetrics)
+            dists = iou_cost_matrix(gt_boxes, res_boxes, min_iou=min_iou)
             acc.update(gt_ids, res_ids, dists)
 
         accs[seq] = acc
