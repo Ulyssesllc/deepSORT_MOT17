@@ -15,9 +15,11 @@ def iou_cost_matrix(
     Boxes are in MOT format [x, y, w, h]. Returns a matrix with cost = 1 - IoU
     and np.nan where IoU < min_iou.
     """
-    M = 0 if objs is None else int(objs.shape[0])
-    N = 0 if hyps is None else int(hyps.shape[0])
+    M = 0 if objs is None or objs.size == 0 else int(objs.shape[0])
+    N = 0 if hyps is None or hyps.size == 0 else int(hyps.shape[0])
+
     if M == 0 or N == 0:
+        # Return empty matrix with correct shape
         return np.empty((M, N))
 
     objs = objs.astype(np.float64, copy=False)
@@ -105,18 +107,66 @@ def evaluate_split(mot_dir: str, result_dir: str, min_iou: float = 0.5):
 
             # Khoảng cách IoU tương thích NumPy 2.0 (tránh np.asfarray trong motmetrics)
             dists = iou_cost_matrix(gt_boxes, res_boxes, min_iou=min_iou)
-            acc.update(gt_ids, res_ids, dists)
+
+            # Debug: kiểm tra format dữ liệu
+            if dists.size == 0:
+                # Nếu không có boxes, tạo ma trận trống
+                dists = np.empty((len(gt_ids), len(res_ids)))
+                if len(gt_ids) > 0 and len(res_ids) > 0:
+                    dists.fill(np.nan)
+
+            # Đảm bảo dists có đúng shape
+            expected_shape = (len(gt_ids), len(res_ids))
+            if dists.shape != expected_shape:
+                print(
+                    f"[WARN] Dists shape mismatch for frame {f}: expected {expected_shape}, got {dists.shape}"
+                )
+                # Tạo ma trận mới với shape đúng
+                dists = np.empty(expected_shape)
+                dists.fill(np.nan)
+
+            # Chỉ update nếu có ít nhất một ID
+            if len(gt_ids) > 0 or len(res_ids) > 0:
+                try:
+                    acc.update(gt_ids, res_ids, dists)
+                except Exception as e:
+                    print(f"[ERROR] Failed to update accumulator for frame {f}: {e}")
+                    print(f"  gt_ids: {gt_ids}")
+                    print(f"  res_ids: {res_ids}")
+                    print(f"  dists shape: {dists.shape}")
+                    continue
 
         accs[seq] = acc
 
     if not accs:
         raise SystemExit("Không có sequence hợp lệ để đánh giá.")
 
+    # Validate accumulators before computing metrics
+    valid_accs = {}
+    for seq_name, acc in accs.items():
+        if hasattr(acc, "events") and len(acc.events) > 0:
+            valid_accs[seq_name] = acc
+        else:
+            print(f"[WARN] Skipping {seq_name}: empty accumulator")
+
+    if not valid_accs:
+        raise SystemExit("Không có accumulator hợp lệ để tính metrics.")
+
     mh = mm.metrics.create()
-    summary = mh.compute(accs, metrics=mm.metrics.motchallenge_metrics, name="MOT17")
-    str_summary = mm.io.render_summary(
-        summary, formatters=mh.formatters, namemap=mm.io.motchallenge_metric_names
-    )
+    try:
+        summary = mh.compute(
+            valid_accs, metrics=mm.metrics.motchallenge_metrics, name="MOT17"
+        )
+        str_summary = mm.io.render_summary(
+            summary, formatters=mh.formatters, namemap=mm.io.motchallenge_metric_names
+        )
+    except Exception as e:
+        print(f"[ERROR] Failed to compute metrics: {e}")
+        print("Available sequences with data:")
+        for seq_name, acc in valid_accs.items():
+            print(f"  {seq_name}: {len(acc.events)} events")
+        raise
+
     return summary, str_summary
 
 
