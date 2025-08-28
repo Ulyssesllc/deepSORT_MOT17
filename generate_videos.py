@@ -34,6 +34,11 @@ def parse_args():
         "--result_dir", help="Path to the folder with tracking output.", required=True
     )
     parser.add_argument(
+        "--detection_dir",
+        help="Optional path to detections .npy directory to draw detection boxes.",
+        default=None,
+    )
+    parser.add_argument(
         "--output_dir",
         help="Folder to store the videos in. Will be created if it does not exist.",
         required=True,
@@ -65,10 +70,19 @@ if __name__ == "__main__":
         result_file = os.path.join(args.result_dir, sequence_txt)
         update_ms = args.update_ms
         video_filename = os.path.join(args.output_dir, f"{sequence}.avi")
+        detection_file = None
+        if args.detection_dir is not None:
+            cand = os.path.join(args.detection_dir, f"{sequence}.npy")
+            if os.path.exists(cand):
+                detection_file = cand
+            else:
+                print(
+                    f"[WARN] No detections found for {sequence} at {cand}; proceeding without."
+                )
 
         print(f"Saving {sequence_txt} to {video_filename}.")
         show_results.run(
-            sequence_dir, result_file, False, None, update_ms, video_filename
+            sequence_dir, result_file, False, detection_file, update_ms, video_filename
         )
 
     if not args.convert_h264:
