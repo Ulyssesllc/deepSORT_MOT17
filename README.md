@@ -3,7 +3,7 @@
 ## Giới thiệu
 Bài toán Multiple Object Tracking (MOT) nhằm gán ID nhất quán cho các đối tượng xuyên suốt chuỗi ảnh/video. Dự án này triển khai và so sánh:
 - SORT: Theo dõi bằng Kalman Filter + gán ghép Hungarian theo IoU.
-- DeepSORT: Bổ sung đặc trưng ReID (MARS) để tăng độ bền vững trước che khuất/va chạm.
+- DeepSORT: Bổ sung đặc trưng ReID (MARS) để tăng độ bền vững trước che khuất/va chạm [1][2].
 - SORT + YOLOv8: Dùng YOLOv8 (COCO) làm detector thay vì file det có sẵn của MOT.
 
 Dữ liệu: MOT17 (train/test), đánh giá theo các độ đo tiêu chuẩn: MOTA, MOTP, FP, FN, IDS.
@@ -95,8 +95,12 @@ Các CSV metrics tương ứng đã được lưu: sort_metrics.csv, deepsort_me
 - Python, Jupyter/Colab
 - Thư viện: numpy, opencv, matplotlib, scipy, filterpy, pandas, tensorflow (DeepSORT), ultralytics (YOLOv8).
 
-## Tác giả
-- Ulyssesllc
+## Tài liệu tham khảo
+[1] N. Wojke, A. Bewley, and D. Paulus, “Simple online and realtime tracking with a deep association metric,” 2017 IEEE International Conference on Image Processing (ICIP), Beijing, China, 2017, pp. 3645–3649. doi: 10.1109/ICIP.2017.8296962. https://doi.org/10.1109/ICIP.2017.8296962
+
+[2] D. Yi, Z. Lei, S. Liao, and S. Z. Li, “Deep Metric Learning for Person Re-identification,” 2014 22nd International Conference on Pattern Recognition (ICPR), Stockholm, Sweden, 2014, pp. 34–39. doi: 10.1109/ICPR.2014.16. https://doi.org/10.1109/ICPR.2014.16
 
 ## License
-Dự án sử dụng cho mục đích học tập và nghiên cứu.
+Phát hành theo MIT License. Xem file LICENSE để biết chi tiết.
+
+
