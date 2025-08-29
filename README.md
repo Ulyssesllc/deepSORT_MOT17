@@ -52,10 +52,10 @@ Quy trình chạy một lần:
   | DeepSORT        | 0.2571  | 0.8874  | 1193 | 12582 | 29  | 18581 | 5999    |
   | SORT + YOLOv8   | 0.2294  | 0.8127  | 778  | 13501 | 39  | 18581 | 5080    |
 
-Ghi chú độ đo:
-- MOTA: càng cao càng tốt (tổng hợp FP, FN, IDS).
-- MOTP: IoU trung bình giữa dự đoán và GT (càng cao càng tốt).
-- IDS: số lần đổi ID (càng thấp càng tốt).
+  Ghi chú độ đo:
+  - MOTA: càng cao càng tốt (tổng hợp FP, FN, IDS).
+  - MOTP: IoU trung bình giữa dự đoán và GT (càng cao càng tốt).
+  - IDS: số lần đổi ID (càng thấp càng tốt).
 
 - Định tính:
   - output_sort.mp4: Theo dõi ổn khi ít che khuất; dễ mất ID khi đám đông.
