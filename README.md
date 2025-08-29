@@ -45,13 +45,12 @@ Quy trình chạy một lần:
 1) Mở notebook tương ứng, chỉnh SEQ_ROOT/tham số. 2) Chạy toàn bộ cells theo thứ tự. 3) Sau khi chạy xong sẽ có video và file CSV metrics trong /content (hoặc thư mục làm việc).
 
 ## Kết quả thực nghiệm
-
 - Định lượng (MOT17-02-FRCNN, tham số như trong notebook):
-| Thuật toán      | MOTA    | MOTP    | FP   | FN    | IDS | GT    | Matches |
-|-----------------|---------|---------|------|-------|-----|-------|---------|
-| SORT            | 0.2554  | 0.8853  | 1198 | 12613 | 25  | 18581 | 5968    |
-| DeepSORT        | 0.2571  | 0.8874  | 1193 | 12582 | 29  | 18581 | 5999    |
-| SORT + YOLOv8   | 0.2294  | 0.8127  | 778  | 13501 | 39  | 18581 | 5080    |
+  | Thuật toán      | MOTA    | MOTP    | FP   | FN    | IDS | GT    | Matches |
+  |-----------------|---------|---------|------|-------|-----|-------|---------|
+  | SORT            | 0.2554  | 0.8853  | 1198 | 12613 | 25  | 18581 | 5968    |
+  | DeepSORT        | 0.2571  | 0.8874  | 1193 | 12582 | 29  | 18581 | 5999    |
+  | SORT + YOLOv8   | 0.2294  | 0.8127  | 778  | 13501 | 39  | 18581 | 5080    |
 
 Ghi chú độ đo:
 - MOTA: càng cao càng tốt (tổng hợp FP, FN, IDS).
